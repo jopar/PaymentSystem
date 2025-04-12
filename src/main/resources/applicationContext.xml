@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/data/jpa
+                           http://www.springframework.org/schema/data/jpa/spring-jpa.xsd
+                           http://www.springframework.org/schema/tx
+                           http://www.springframework.org/schema/tx/spring-tx.xsd
+                           http://www.springframework.org/schema/aop
+                           http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!-- PropertyPlaceholderConfigurer for loading properties from application.properties -->
+    <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="location" value="classpath:application.properties"/>
+    </bean>
+
+    <bean id="adyenClient" class="com.adyen.Client">
+        <constructor-arg value="${adyen.apiKey}" />
+        <constructor-arg value="${adyen.environment}" />
+    </bean>
+
+    <bean id="paymentApi" class="com.adyen.service.checkout.PaymentsApi">
+        <constructor-arg ref="adyenClient" />
+    </bean>
+
+    <bean id="adyenConfig" class="com.example.payment.config.AdyenConfig">
+        <property name="environment" value="${adyen.environment}" />
+        <property name="apiKey" value="${adyen.apiKey}" />
+        <property name="merchantAccount" value="${adyen.merchantAccount}" />
+    </bean>
+
+    <bean id="paymentService" class="com.example.payment.adyen.service.PaymentService">
+        <constructor-arg ref="paymentApi" />
+        <constructor-arg ref="adyenConfig" />
+        <constructor-arg ref="paymentRepository" />
+        <constructor-arg ref="paymentWebhookRepository" />
+    </bean>
+
+    <bean id="myService" class="com.example.payment.services.MyService" />
+    <bean id="paymentValidator" class="com.example.payment.adyen.validator.PaymentValidator" />
+
+    <!-- EntityManagerFactory za JPA -->
+    <bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="dataSource" />
+        <property name="packagesToScan" value="com.example" />
+        <property name="jpaVendorAdapter">
+            <bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+                <property name="databasePlatform" value="${spring.jpa.database-platform}" />
+                <property name="generateDdl" value="true" />
+            </bean>
+        </property>
+    </bean>
+
+    <!-- Transaction Manager -->
+    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="entityManagerFactory" />
+    </bean>
+
+<!--    <tx:annotation-driven transaction-manager="transactionManager" />-->
+
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <tx:method name="handleNotification" propagation="REQUIRED"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <aop:config>
+        <aop:pointcut id="txPointcut"
+                      expression="execution(* com.example.payment.adyen.service.PaymentService.handleNotification(..))"/>
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="txPointcut"/>
+    </aop:config>
+
+    <!-- Enable Spring Data JPA repositories -->
+    <jpa:repositories base-package="com.example.payment.repository" />
+
+    <!-- Task executor -->
+    <bean id="taskExecutor" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+        <property name="corePoolSize" value="5" />
+        <property name="maxPoolSize" value="10" />
+        <property name="queueCapacity" value="25" />
+    </bean>
+
+    <bean id="adyenWebhookProcessor" class="com.example.payment.adyen.async.AsyncWebhookProcessor">
+        <constructor-arg name="paymentService" ref="paymentService" />
+    </bean>
+</beans>
