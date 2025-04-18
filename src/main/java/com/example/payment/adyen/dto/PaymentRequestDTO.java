@@ -7,8 +7,6 @@ import com.adyen.model.checkout.IdealDetails;
 
 public class PaymentRequestDTO {
 
-//    private PaymentMethodDetails paymentMethodDetails;
-
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
     @JsonSubTypes({
             @JsonSubTypes.Type(value = CardDetails.class, name = "scheme"),

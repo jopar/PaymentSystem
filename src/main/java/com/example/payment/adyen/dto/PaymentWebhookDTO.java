@@ -1,46 +1,33 @@
-package com.example.payment.model;
+package com.example.payment.adyen.dto;
 
-import jakarta.persistence.*;
-
-import java.time.LocalDateTime;
 import java.util.Date;
 
-@Entity
-@Table(name = "payment_webhook")
-public class PaymentWebhook {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class PaymentWebhookDTO {
     private Long id;
-
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "payment_id")
-    private Payment payment;
-
+    private Long paymentId;
     private String eventCode;
     private Boolean success;
     private String pspReference;
-
-    @Temporal(TemporalType.TIMESTAMP)
     private Date eventDate;
-
-    @Temporal(TemporalType.TIMESTAMP)
-    private LocalDateTime receivedAt;
-
-    @Lob
-    @Column(name = "rawnotification", columnDefinition = "TEXT")
+    private Date receivedAt;
     private String rawNotification;
+
+    // Getters and setters
 
     public Long getId() {
         return id;
     }
 
-    public Payment getPayment() {
-        return payment;
+    public void setId(Long id) {
+        this.id = id;
     }
 
-    public void setPayment(Payment payment) {
-        this.payment = payment;
+    public Long getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(Long paymentId) {
+        this.paymentId = paymentId;
     }
 
     public String getEventCode() {
@@ -75,11 +62,11 @@ public class PaymentWebhook {
         this.eventDate = eventDate;
     }
 
-    public LocalDateTime getReceivedAt() {
+    public Date getReceivedAt() {
         return receivedAt;
     }
 
-    public void setReceivedAt(LocalDateTime receivedAt) {
+    public void setReceivedAt(Date receivedAt) {
         this.receivedAt = receivedAt;
     }
 
