@@ -67,6 +67,18 @@ src/
 - **HMAC Signature**: Verified using Adyen-provided HMAC key
 
 ---
+## 📬 Webhook Handling
+
+Webhooks are validated with:
+
+- ✅ **Basic Auth** (`Authorization` header)
+- ✅ **HMAC signature** (per Adyen's recommendation)
+
+Notification items are:
+
+- 📝 Saved to the database
+- 🔄 Used to update the corresponding payment status
+
 
 ## 🗄️ Database Tables
 
@@ -102,5 +114,6 @@ src/
 ./mvnw spring-boot:run
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTA2Nzc1MTIyNiw4MjYzMDQ3NTNdfQ==
+eyJoaXN0b3J5IjpbMTgyNDQ5MDg0MCwxMDY3NzUxMjI2LDgyNj
+MwNDc1M119
 -->
