@@ -49,7 +49,7 @@ src/
 
 ## 🔌 API Endpoints
 
-### `POST /api/payment`
+### `POST /api/payment/adyen`
 - Creates a new payment request
 - Accepts: `PaymentRequestDTO`
 - Returns: redirect URL to Adyen checkout
@@ -127,6 +127,6 @@ Notification items are:
 ./mvnw spring-boot:run
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTA5MDQ4ODY2NiwxMDY3NzUxMjI2LDgyNj
-MwNDc1M119
+eyJoaXN0b3J5IjpbLTIwODk5NzU1NzQsMTA2Nzc1MTIyNiw4Mj
+YzMDQ3NTNdfQ==
 -->
