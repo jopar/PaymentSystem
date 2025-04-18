@@ -107,6 +107,7 @@ Notification items are:
 | raw_notification | Full JSON payload                    |
 
 ---
+
 ## 🧪 Testing
 
 - 🗄️ Uses **H2 in-memory database** for integration tests  
@@ -114,6 +115,11 @@ Notification items are:
 - 🧪 Unit tests written with **JUnit 5** and **Mockito**  
 - 🔗 Integration tests validate **real beans** and full application flow
 
+### ✅ Running Tests
+
+```bash
+./mvnw test
+```
 
 ## 🧪 Running the Application
 
@@ -121,6 +127,6 @@ Notification items are:
 ./mvnw spring-boot:run
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbODgzMTgxMTI3LDEwNjc3NTEyMjYsODI2Mz
-A0NzUzXX0=
+eyJoaXN0b3J5IjpbMTA5MDQ4ODY2NiwxMDY3NzUxMjI2LDgyNj
+MwNDc1M119
 -->
