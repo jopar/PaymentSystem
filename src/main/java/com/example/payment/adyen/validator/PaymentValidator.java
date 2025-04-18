@@ -159,6 +159,7 @@ public class PaymentValidator {
 
         if (paymentId == null) {
             errors.add("Parameter payment_id is required");
+            return errors;
         }
 
         if (redirectResult == null) {
