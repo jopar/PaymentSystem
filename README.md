@@ -125,8 +125,7 @@ Notification items are:
 
 ```bash
 ./mvnw spring-boot:run
-
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTIwODk5NzU1NzQsMTA2Nzc1MTIyNiw4Mj
-YzMDQ3NTNdfQ==
+eyJoaXN0b3J5IjpbLTEwNDU2MzA1MzIsLTIwODk5NzU1NzQsMT
+A2Nzc1MTIyNiw4MjYzMDQ3NTNdfQ==
 -->
