@@ -3,47 +3,54 @@ package com.example.payment.adyen.service;
 
 import com.adyen.model.RequestOptions;
 import com.adyen.model.checkout.*;
+import com.adyen.model.notification.NotificationRequest;
 import com.adyen.model.notification.NotificationRequestItem;
 import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;
+import com.adyen.util.HMACValidator;
+import com.example.payment.adyen.dao.PaymentDao;
+import com.example.payment.adyen.dao.PaymentWebhookDao;
+import com.example.payment.adyen.dto.PaymentDTO;
 import com.example.payment.adyen.dto.PaymentRequestDTO;
+import com.example.payment.adyen.dto.PaymentWebhookDTO;
 import com.example.payment.config.AdyenConfig;
+import com.example.payment.exceptions.PaymentNotFoundException;
 import com.example.payment.helper.PaymentMethodHelper;
-import com.example.payment.model.Payment;
-import com.example.payment.model.PaymentWebhook;
-import com.example.payment.repository.PaymentRepository;
-import com.example.payment.repository.PaymentWebhookRepository;
+import com.example.payment.logging.MyLogger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 public class PaymentService {
 
+    private final static MyLogger logger = new MyLogger(LoggerFactory.getLogger(PaymentService.class));
+
     private final PaymentsApi paymentsApi;
     private final AdyenConfig adyenConfig;
-//    private final PaymentRequest paymentRequest;
-    private final PaymentRepository paymentRepository;
-    private final PaymentWebhookRepository paymentWebhookRepository;
+    private final PaymentDao paymentDao;
+    private final PaymentWebhookDao paymentWebhookDao;
 
-    public PaymentService(PaymentsApi paymentsApi, AdyenConfig adyenConfig, PaymentRepository paymentRepository, PaymentWebhookRepository paymentWebhookRepository) {
+    private HMACValidator hmacValidator;
+
+    public PaymentService(PaymentsApi paymentsApi, AdyenConfig adyenConfig, PaymentDao paymentDao, PaymentWebhookDao paymentWebhookDao) {
         this.paymentsApi = paymentsApi;
         this.adyenConfig = adyenConfig;
-        this.paymentRepository = paymentRepository;
-        this.paymentWebhookRepository = paymentWebhookRepository;
+        this.paymentDao = paymentDao;
+        this.paymentWebhookDao = paymentWebhookDao;
     }
 
-    public String getServiceName() {
-        return "PaymentService";
+    public void setHmacValidator(HMACValidator hmacValidator) {
+        this.hmacValidator = hmacValidator;
     }
 
-    public PaymentResponse makePayment(Payment payment, Object paymentDetails, String amount, String currency, String referenceNumber, String returnUrl) throws IOException, ApiException {
+    public PaymentResponse makePayment(PaymentDTO payment, Object paymentDetails, String amount, String currency, String referenceNumber, String returnUrl) throws IOException, ApiException {
         PaymentRequest paymentRequest = new PaymentRequest();
 
         Amount paymentAmount = new Amount().currency(currency).value(Long.parseLong(amount));
@@ -73,122 +80,179 @@ public class PaymentService {
         return paymentsApi.paymentsDetails(detailsRequest, requestOptions);
     }
 
-    public Payment createPayment(PaymentRequestDTO paymentRequestDTO, String paymentType) {
-        Payment payment = new Payment();
+    public PaymentDTO createPayment(PaymentRequestDTO paymentRequestDTO, String paymentType) throws PaymentNotFoundException {
+        PaymentDTO payment = new PaymentDTO();
+        Date currentDate = new Date();
         payment.setMerchantReference(adyenConfig.getMerchantAccount());
         payment.setAmount(Long.parseLong(paymentRequestDTO.getAmount()));
         payment.setCurrency(paymentRequestDTO.getCurrency());
         payment.setReference(paymentRequestDTO.getReferenceNumber());
         payment.setPaymentMethod(paymentType);
         payment.setStatus("INITIATED");
-        return paymentRepository.save(payment);
+        payment.setCreateAt(currentDate);
+        payment.setUpdateAt(currentDate);
+
+        return paymentDao.insert(payment).orElseThrow(() -> new PaymentNotFoundException());
     }
 
-    public void updatePaymentSuccess(Payment payment, String pspReference, String authCode) {
+    public void updatePaymentSuccess(PaymentDTO payment, String pspReference, String authCode) {
         payment.setPspReference(pspReference);
         payment.setAuthCode(authCode);
         payment.setStatus("SUCCESS");
-        paymentRepository.save(payment);
+        paymentDao.updatePspReferenceStatusAndCode(payment);
     }
 
-    public void updatePaymentPending(Payment payment, String authCode) {
+    public void updatePaymentPending(PaymentDTO payment, String authCode) {
         payment.setAuthCode(authCode);
         payment.setStatus("PENDING");
-        paymentRepository.save(payment);
+        paymentDao.updateStatusAndAuth(payment);
     }
 
-    public void updatePaymentFailure(Payment payment, String errorMessage) {
+    public void updatePaymentPending(PaymentDTO payment, String authCode, String pspReference) {
+        payment.setAuthCode(authCode);
+        payment.setStatus("PENDING");
+        payment.setPspReference(pspReference);
+        paymentDao.updatePspReferenceStatusAndCode(payment);
+    }
+
+    public void updatePaymentFailure(PaymentDTO payment, String errorMessage) {
         payment.setStatus("FAILED");
         payment.setFailureMessage(errorMessage);
-        paymentRepository.save(payment);
+
+        paymentDao.updateStatusAndSetMessage(payment);
     }
 
-    public void updatePaymentFailure(Payment payment, String errorMessage, String authCode) {
+    public void updatePaymentFailure(PaymentDTO payment, String errorMessage, String authCode) {
         if (authCode.isEmpty()) {
             authCode = PaymentResponse.ResultCodeEnum.ERROR.getValue();
         }
         payment.setStatus("FAILED");
         payment.setAuthCode(authCode);
         payment.setFailureMessage(errorMessage);
-        paymentRepository.save(payment);
+
+        paymentDao.updateStatusAuthCodeAndSetMessage(payment);
     }
 
-    public Payment getPaymentByID(Long paymentId) {
-        return paymentRepository.getReferenceById(paymentId);
+    public void updatePaymentFailure(PaymentDTO payment, String errorMessage, String pspReference, String authCode) {
+        updatePaymentFailure(payment, errorMessage, authCode);
+        payment.setPspReference(pspReference);
+        paymentDao.updatePspReferenceStatusAndCode(payment);
     }
 
-    public Payment getPaymentByReferenceNumber(String referenceNumber) {
-        return paymentRepository.findByReference(referenceNumber);
+    public PaymentDTO getPaymentByID(Long paymentId) {
+        return paymentDao.findById(paymentId).orElse(null);
     }
 
-    public Payment getPaymentByPspReference(String pspReference) {
-        Optional<Payment> paymentOptional = paymentRepository.findByPspReference(pspReference);
-        if (paymentOptional.isEmpty()) {
-            return null;
-        }
+    public PaymentDTO getPaymentByReferenceNumber(String referenceNumber) {
+        return paymentDao.findByReference(referenceNumber).orElse(null);
+    }
 
-        return paymentOptional.get();
+    public PaymentDTO getPaymentByPspReference(String pspReference) {
+        return paymentDao.findByPspReference(pspReference).orElse(null);
     }
 
     public void handleNotification(NotificationRequestItem item) {
-        String eventCode = item.getEventCode();
-        boolean isSuccess = item.isSuccess();
-        String merchantReference = item.getMerchantReference();
-        String pspReference = item.getPspReference();
-        String originalReference = item.getOriginalReference();
-        Date eventDate = item.getEventDate();
+        try {
+            String eventCode = item.getEventCode();
+            boolean isSuccess = item.isSuccess();
+            String merchantReference = item.getMerchantReference();
+            String pspReference = item.getPspReference();
+            String originalReference = item.getOriginalReference();
+            Date eventDate = item.getEventDate();
 
-        Optional<Payment> paymentOpt = paymentRepository.findByPspReference(pspReference);
-        if (paymentOpt.isEmpty()) {
-            System.out.println("Payment with pspReference " + pspReference + "not exist!" );
-            return;
+            Optional<PaymentDTO> paymentOpt = paymentDao.findByPspReference(pspReference);
+            if (paymentOpt.isEmpty()) {
+                logger.error(String.format("Payment with pspReference %s not exist", pspReference));
+                return;
+            }
+
+            PaymentDTO payment = paymentOpt.get();
+
+            PaymentWebhookDTO paymentWebhook = new PaymentWebhookDTO();
+            paymentWebhook.setPaymentId(payment.getId());
+            paymentWebhook.setEventCode(eventCode);
+            paymentWebhook.setPspReference(pspReference);
+            paymentWebhook.setSuccess(isSuccess);
+            paymentWebhook.setReceivedAt(new Date());
+            paymentWebhook.setEventDate(eventDate);
+            paymentWebhook.setRawNotification(toJson(item));
+
+            paymentWebhookDao.insert(paymentWebhook);
+
+            switch (eventCode) {
+                case "AUTHORISATION":
+                    if (isSuccess) {
+                        payment.setAuthCode("AUTHORISED");
+//                    payment.setPspReference(pspReference);
+                    } else {
+                        payment.setAuthCode("REFUSED");
+                    }
+                    break;
+                case "REFUND":
+                    if (isSuccess) payment.setAuthCode("REFUNDED");
+                    break;
+                case "CANCELLATION":
+                    if (isSuccess) payment.setAuthCode("CANCELLED");
+                    break;
+                case "EXPIRE":
+                    if (isSuccess) payment.setAuthCode("EXPIRED");
+                    break;
+            }
+
+            payment.setStatus("SUCCESS");
+
+            paymentDao.updateStatusAndAuth(payment);
+        } catch (Exception e) {
+            logger.error("Error when receive new notification: " + e.getMessage(), item);
+
+            throw new RuntimeException("Set for rollback", e);
         }
-
-        Payment payment = paymentOpt.get();
-
-        PaymentWebhook paymentWebhook = new PaymentWebhook();
-        paymentWebhook.setPayment(payment);
-        paymentWebhook.setEventCode(eventCode);
-        paymentWebhook.setPspReference(pspReference);
-        paymentWebhook.setSuccess(isSuccess);
-        paymentWebhook.setReceivedAt(LocalDateTime.now());
-        paymentWebhook.setEventDate(eventDate);
-        paymentWebhook.setRawNotification(this.toJson(item));
-
-        paymentWebhookRepository.save(paymentWebhook);
-
-        switch (eventCode) {
-            case "AUTHORISATION":
-                if (isSuccess) {
-                    payment.setStatus("AUTHORISED");
-                    payment.setPspReference(pspReference);
-                } else {
-                    payment.setStatus("REFUSED");
-                }
-                break;
-            case "REFUND":
-                if (isSuccess) payment.setStatus("REFUNDED");
-                break;
-            case "CANCELLATION":
-                if (isSuccess) payment.setStatus("CANCELLED");
-                break;
-            case "EXPIRE":
-                if (isSuccess) payment.setStatus("EXPIRED");
-                break;
-            // dodaj ostale evente po potrebi
-        }
-
-        payment.setUpdateAt(new Date());
-        paymentRepository.save(payment);
     }
 
-    // TODO: 11. 04. 2025 Premakni kam drugam
     private String toJson(NotificationRequestItem item) {
         try {
             return new ObjectMapper().writeValueAsString(item);
         } catch (JsonProcessingException e) {
-            // Logiraj napako ali vrzi RuntimeException
             return "{}";
         }
+    }
+
+    public boolean checkBasicAuthValid(HttpServletRequest request) {
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith("Basic ")) {
+            String encodedCredentials = authHeader.substring(6);
+            String decodedCredentials = new String(Base64.getDecoder().decode(encodedCredentials));
+            StringTokenizer tokenizer = new StringTokenizer(decodedCredentials, ":");
+            String username = tokenizer.nextToken();
+            String password = tokenizer.nextToken();
+
+            boolean isOk = username.equals(adyenConfig.getWebhookUsername()) && password.equals(adyenConfig.getWebhookPassword());
+            if (!isOk) {
+                HashMap<String, String> context = new HashMap<>();
+                context.put("incomeUsername", username);
+                context.put("incomePassword", password);
+                context.put("ourUsername", adyenConfig.getWebhookUsername());
+                context.put("ourPassword", adyenConfig.getWebhookPassword());
+                logger.error("This webhook callback is unauthorized.", context);
+            }
+            return isOk;
+        }
+
+        return false;
+    }
+
+    public boolean checkAdyenHMAC(NotificationRequest notificationRequest) {
+        try {
+            for (NotificationRequestItem item : notificationRequest.getNotificationItems()) {
+                if (!hmacValidator.validateHMAC(item, adyenConfig.getWebhookHMAC())) {
+                    throw new RuntimeException("Wrong HMAC for request.");
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Wrong calculated HMAC");
+            return false;
+        }
+
+        return true;
     }
 }
