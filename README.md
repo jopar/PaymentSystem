@@ -31,10 +31,76 @@ This is a Spring Boot-based backend system for processing online payments using 
 - JUnit 5 + Mockito
 
 ---
-
 ## 📁 Project Structure
 
-src/ ├── controller/ # REST controllers for payment + webhook ├── service/ # Business logic ├── dao/ # Data access via NamedParameterJdbcTemplate ├── dto/ # DTOs for requests and responses ├── async/ # Asynchronous webhook handling ├── config/ # Adyen + Spring configuration ├── exceptions/ # Custom exceptions ├── logging/ # Logging wrappers
+```text
+src/
+├── controller/       # REST controllers for payment + webhook
+├── service/          # Business logic
+├── dao/              # Data access via NamedParameterJdbcTemplate
+├── dto/              # DTOs for requests and responses
+├── async/            # Asynchronous webhook handling
+├── config/           # Adyen + Spring configuration
+├── exceptions/       # Custom exceptions
+├── logging/          # Logging wrappers
+```
+
+---
+
+## 🔌 API Endpoints
+
+### `POST /api/payment`
+- Creates a new payment request
+- Accepts: `PaymentRequestDTO`
+- Returns: redirect URL to Adyen checkout
+
+### `POST /api/webhook/adyen`
+- Adyen webhook endpoint
+- Validates HMAC + Basic Auth
+- Persists `NotificationRequestItem`s and updates associated payment
+
+---
+
+## 🔐 Webhook Security
+
+- **Basic Authentication**: Validated against configured `username:password`
+- **HMAC Signature**: Verified using Adyen-provided HMAC key
+
+---
+
+## 🗄️ Database Tables
+
+### `payment`
+| Column         | Description                  |
+|----------------|------------------------------|
+| id             | Internal ID                  |
+| reference      | Merchant reference           |
+| psp_reference  | Adyen PSP reference          |
+| status         | Current payment status       |
+| amount         | Payment amount               |
+| currency       | ISO 3-letter currency code   |
+| created_at     | Creation timestamp           |
+| updated_at     | Last update timestamp        |
+
+### `payment_webhook`
+| Column         | Description                            |
+|----------------|----------------------------------------|
+| id             | Internal ID                            |
+| payment_id     | Foreign key to payment                 |
+| event_code     | Adyen event type (e.g. AUTHORISATION)  |
+| psp_reference  | Adyen's reference for this event       |
+| success        | Was the event successful?              |
+| event_date     | Date of the Adyen event                |
+| received_at    | When the system received the webhook   |
+| raw_notification | Full JSON payload                    |
+
+---
+
+## 🧪 Running the Application
+
+```bash
+./mvnw spring-boot:run
+
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTIxODk3MjM0MCw4MjYzMDQ3NTNdfQ==
+eyJoaXN0b3J5IjpbMTA2Nzc1MTIyNiw4MjYzMDQ3NTNdfQ==
 -->
