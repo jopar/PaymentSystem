@@ -50,12 +50,26 @@ src/
 ## 🔌 API Endpoints
 
 ### `POST /api/payment/adyen`
-- Creates a new payment request
-- Accepts: `PaymentRequestDTO`
-- Returns: redirect URL to Adyen checkout
+ - Creates a new payment request
+ - Accepts: `PaymentRequestDTO`
+ - Returns: redirect URL to Adyen checkout
 ### Example:
-```
-
+ - ```
+curl -X POST http://<URL_FOR_SERVER>:<PORT>/api/payments/adyen/pay \
+  -H "Content-Type: application/json" \
+  -d '{
+    "paymentMethodDetails": {
+      "type": "scheme",
+      "encryptedCardNumber": "test_4111111111111111",
+      "encryptedSecurityCode": "test_737",
+      "encryptedExpiryYear": "test_2030",
+      "encryptedExpiryMonth": "test_03"
+    },
+    "amount": "500",
+    "currency": "USD",
+    "referenceNumber": "ref12345",
+    "returnURL": "http://example.com/return"
+  }'
 ```
 
 ### `POST /api/webhook/adyen`
@@ -131,7 +145,7 @@ Notification items are:
 ./mvnw spring-boot:run
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNjI3MzQ0Mzc1LDYyMjcxMTM3MCwtMTA0NT
+eyJoaXN0b3J5IjpbODQ1NzI1MzcwLDYyMjcxMTM3MCwtMTA0NT
 YzMDUzMiwtMjA4OTk3NTU3NCwxMDY3NzUxMjI2LDgyNjMwNDc1
 M119
 -->
