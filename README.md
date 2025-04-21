@@ -50,10 +50,12 @@ src/
 ## 🔌 API Endpoints
 
 ### `POST /api/payment/adyen`
- 1. Creates a new payment request
- 2. Accepts: `PaymentRequestDTO`
- 3. Returns: redirect URL to Adyen checkout
-### Example:
+
+ - Creates a new payment request
+ - Accepts: `PaymentRequestDTO`
+ - Returns: redirect URL to Adyen checkout
+
+#### Example:
  
  1. 
  ```
@@ -92,7 +94,12 @@ curl -X POST http://localhost:8080/api/payments/adyen/pay \
 - Adyen webhook endpoint
 - Validates HMAC + Basic Auth
 - Persists `NotificationRequestItem`s and updates associated payment
-
+#### Example:
+ 
+ 1. 
+ ```
+ 
+ ```
 ---
 
 ## 🔐 Webhook Security
@@ -161,7 +168,7 @@ Notification items are:
 ./mvnw spring-boot:run
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTI3NDU2MTQzNCw2MjI3MTEzNzAsLTEwND
-U2MzA1MzIsLTIwODk5NzU1NzQsMTA2Nzc1MTIyNiw4MjYzMDQ3
-NTNdfQ==
+eyJoaXN0b3J5IjpbLTEzMjA2ODY4NzUsNjIyNzExMzcwLC0xMD
+Q1NjMwNTMyLC0yMDg5OTc1NTc0LDEwNjc3NTEyMjYsODI2MzA0
+NzUzXX0=
 -->
