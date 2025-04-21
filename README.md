@@ -53,6 +53,10 @@ src/
 - Creates a new payment request
 - Accepts: `PaymentRequestDTO`
 - Returns: redirect URL to Adyen checkout
+### Example:
+```
+
+```
 
 ### `POST /api/webhook/adyen`
 - Adyen webhook endpoint
@@ -127,6 +131,7 @@ Notification items are:
 ./mvnw spring-boot:run
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNjIyNzExMzcwLC0xMDQ1NjMwNTMyLC0yMD
-g5OTc1NTc0LDEwNjc3NTEyMjYsODI2MzA0NzUzXX0=
+eyJoaXN0b3J5IjpbNjI3MzQ0Mzc1LDYyMjcxMTM3MCwtMTA0NT
+YzMDUzMiwtMjA4OTk3NTU3NCwxMDY3NzUxMjI2LDgyNjMwNDc1
+M119
 -->
