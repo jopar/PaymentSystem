@@ -98,7 +98,32 @@ curl -X POST http://localhost:8080/api/payments/adyen/pay \
  
  1. 
  ```
- 
+ curl -X POST http://localhost:8080/api/webhook/adyen \
+  -H "Content-Type: application/json" \
+  -d '{
+    "live": "false",
+    "notificationItems": [
+      {
+        "NotificationRequestItem": {
+          "additionalData": {
+            "hmacSignature": "dO8EdBhMfJubui5CloBCd0ruZdo8sCUGsq1ksVfrRY8="
+          },
+          "amount": {
+            "currency": "EUR",
+            "value": 500
+          },
+          "eventCode": "AUTHORISATION",
+          "eventDate": "2025-04-18T12:40:04+02:00",
+          "merchantAccountCode": "GRANAccountECOM",
+          "merchantReference": "ref12345",
+          "paymentMethod": "ideal",
+          "pspReference": "DM6ZG7WWQBWD2HV5",
+          "reason": "Refused",
+          "success": "false"
+        }
+      }
+    ]
+  }'
  ```
 ---
 
@@ -168,7 +193,7 @@ Notification items are:
 ./mvnw spring-boot:run
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEzMjA2ODY4NzUsNjIyNzExMzcwLC0xMD
-Q1NjMwNTMyLC0yMDg5OTc1NTc0LDEwNjc3NTEyMjYsODI2MzA0
-NzUzXX0=
+eyJoaXN0b3J5IjpbODYwNTk3NjQ3LC0xMzIwNjg2ODc1LDYyMj
+cxMTM3MCwtMTA0NTYzMDUzMiwtMjA4OTk3NTU3NCwxMDY3NzUx
+MjI2LDgyNjMwNDc1M119
 -->
