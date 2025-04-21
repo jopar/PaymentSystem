@@ -50,11 +50,13 @@ src/
 ## 🔌 API Endpoints
 
 ### `POST /api/payment/adyen`
- - Creates a new payment request
- - Accepts: `PaymentRequestDTO`
- - Returns: redirect URL to Adyen checkout
+ 1. Creates a new payment request
+ 2. Accepts: `PaymentRequestDTO`
+ 3. Returns: redirect URL to Adyen checkout
 ### Example:
- - ```
+ 
+ 1. 
+ ```
 curl -X POST http://<URL_FOR_SERVER>:<PORT>/api/payments/adyen/pay \
   -H "Content-Type: application/json" \
   -d '{
@@ -69,6 +71,20 @@ curl -X POST http://<URL_FOR_SERVER>:<PORT>/api/payments/adyen/pay \
     "currency": "USD",
     "referenceNumber": "ref12345",
     "returnURL": "http://example.com/return"
+  }'
+```
+2. 
+```
+curl -X POST http://localhost:8080/api/payments/adyen/pay \
+  -H "Content-Type: application/json" \
+  -d '{
+    "paymentMethodDetails": {
+      "type": "ideal"
+    },
+    "amount": "500",
+    "currency": "EUR",
+    "referenceNumber": "ref12345",
+    "returnURL": "https://payments.andrazgregorcic.eu/api/payments/adyen/return"
   }'
 ```
 
@@ -145,7 +161,7 @@ Notification items are:
 ./mvnw spring-boot:run
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbODQ1NzI1MzcwLDYyMjcxMTM3MCwtMTA0NT
-YzMDUzMiwtMjA4OTk3NTU3NCwxMDY3NzUxMjI2LDgyNjMwNDc1
-M119
+eyJoaXN0b3J5IjpbLTI3NDU2MTQzNCw2MjI3MTEzNzAsLTEwND
+U2MzA1MzIsLTIwODk5NzU1NzQsMTA2Nzc1MTIyNiw4MjYzMDQ3
+NTNdfQ==
 -->
