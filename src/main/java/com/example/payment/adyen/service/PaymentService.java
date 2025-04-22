@@ -13,9 +13,11 @@ import com.example.payment.adyen.dao.PaymentWebhookDao;
 import com.example.payment.adyen.dto.PaymentDTO;
 import com.example.payment.adyen.dto.PaymentRequestDTO;
 import com.example.payment.adyen.dto.PaymentWebhookDTO;
+import com.example.payment.adyen.validator.WebhookValidator;
 import com.example.payment.config.AdyenConfig;
 import com.example.payment.exceptions.PaymentNotFoundException;
 import com.example.payment.helper.PaymentMethodHelper;
+import com.example.payment.helper.PaymentStatusEnum;
 import com.example.payment.logging.MyLogger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,7 +32,7 @@ import java.util.*;
 
 public class PaymentService {
 
-    private final static MyLogger logger = new MyLogger(LoggerFactory.getLogger(PaymentService.class));
+    private static final MyLogger logger = new MyLogger(LoggerFactory.getLogger(PaymentService.class));
 
     private final PaymentsApi paymentsApi;
     private final AdyenConfig adyenConfig;
@@ -53,7 +55,9 @@ public class PaymentService {
     public PaymentResponse makePayment(PaymentDTO payment, Object paymentDetails, String amount, String currency, String referenceNumber, String returnUrl) throws IOException, ApiException {
         PaymentRequest paymentRequest = new PaymentRequest();
 
-        Amount paymentAmount = new Amount().currency(currency).value(Long.parseLong(amount));
+        long amountInMinorUnits = PaymentMethodHelper.toMinorUnits(Double.parseDouble(amount), currency);
+
+        Amount paymentAmount = new Amount().currency(currency).value(amountInMinorUnits);
         CheckoutPaymentMethod checkoutPaymentMethod = PaymentMethodHelper.createCheckoutPaymentMethod(paymentDetails);
 
         String encodePaymentId = URLEncoder.encode(payment.getId().toString(), StandardCharsets.UTF_8);
@@ -71,7 +75,7 @@ public class PaymentService {
         return paymentsApi.payments(paymentRequest, requestOptions);
     }
 
-    public PaymentDetailsResponse checkPayment(String referenceNumber, String redirectResult) throws IOException, ApiException {
+    public PaymentDetailsResponse checkPayment(String redirectResult) throws IOException, ApiException {
         DetailsRequest detailsRequest = new DetailsRequest();
         detailsRequest.setDetails(new PaymentCompletionDetails().redirectResult(redirectResult));
 
@@ -84,11 +88,11 @@ public class PaymentService {
         PaymentDTO payment = new PaymentDTO();
         Date currentDate = new Date();
         payment.setMerchantReference(adyenConfig.getMerchantAccount());
-        payment.setAmount(Long.parseLong(paymentRequestDTO.getAmount()));
+        payment.setAmount(Double.parseDouble(paymentRequestDTO.getAmount()));
         payment.setCurrency(paymentRequestDTO.getCurrency());
         payment.setReference(paymentRequestDTO.getReferenceNumber());
         payment.setPaymentMethod(paymentType);
-        payment.setStatus("INITIATED");
+        payment.setStatus(PaymentStatusEnum.INITIATED);
         payment.setCreateAt(currentDate);
         payment.setUpdateAt(currentDate);
 
@@ -98,25 +102,25 @@ public class PaymentService {
     public void updatePaymentSuccess(PaymentDTO payment, String pspReference, String authCode) {
         payment.setPspReference(pspReference);
         payment.setAuthCode(authCode);
-        payment.setStatus("SUCCESS");
+        payment.setStatus(PaymentStatusEnum.SUCCESS);
         paymentDao.updatePspReferenceStatusAndCode(payment);
     }
 
     public void updatePaymentPending(PaymentDTO payment, String authCode) {
         payment.setAuthCode(authCode);
-        payment.setStatus("PENDING");
+        payment.setStatus(PaymentStatusEnum.PENDING);
         paymentDao.updateStatusAndAuth(payment);
     }
 
     public void updatePaymentPending(PaymentDTO payment, String authCode, String pspReference) {
         payment.setAuthCode(authCode);
-        payment.setStatus("PENDING");
+        payment.setStatus(PaymentStatusEnum.PENDING);
         payment.setPspReference(pspReference);
         paymentDao.updatePspReferenceStatusAndCode(payment);
     }
 
     public void updatePaymentFailure(PaymentDTO payment, String errorMessage) {
-        payment.setStatus("FAILED");
+        payment.setStatus(PaymentStatusEnum.FAILED);
         payment.setFailureMessage(errorMessage);
 
         paymentDao.updateStatusAndSetMessage(payment);
@@ -126,7 +130,7 @@ public class PaymentService {
         if (authCode.isEmpty()) {
             authCode = PaymentResponse.ResultCodeEnum.ERROR.getValue();
         }
-        payment.setStatus("FAILED");
+        payment.setStatus(PaymentStatusEnum.FAILED);
         payment.setAuthCode(authCode);
         payment.setFailureMessage(errorMessage);
 
@@ -155,10 +159,9 @@ public class PaymentService {
         try {
             String eventCode = item.getEventCode();
             boolean isSuccess = item.isSuccess();
-            String merchantReference = item.getMerchantReference();
             String pspReference = item.getPspReference();
-            String originalReference = item.getOriginalReference();
             Date eventDate = item.getEventDate();
+            String reason = item.getReason();
 
             Optional<PaymentDTO> paymentOpt = paymentDao.findByPspReference(pspReference);
             if (paymentOpt.isEmpty()) {
@@ -167,6 +170,13 @@ public class PaymentService {
             }
 
             PaymentDTO payment = paymentOpt.get();
+
+            List<String> errorsOnWebhookValidations = WebhookValidator.validateBeforeInsert(payment, item);
+            if (!errorsOnWebhookValidations.isEmpty()) {
+                logger.error("Error on validate webhook and payment before insert", errorsOnWebhookValidations);
+                updatePaymentFailure(payment, "Error on validate webhook and payment before insert.");
+                return;
+            }
 
             PaymentWebhookDTO paymentWebhook = new PaymentWebhookDTO();
             paymentWebhook.setPaymentId(payment.getId());
@@ -179,29 +189,36 @@ public class PaymentService {
 
             paymentWebhookDao.insert(paymentWebhook);
 
+            String authCode;
             switch (eventCode) {
                 case "AUTHORISATION":
-                    if (isSuccess) {
-                        payment.setAuthCode("AUTHORISED");
-//                    payment.setPspReference(pspReference);
-                    } else {
-                        payment.setAuthCode("REFUSED");
-                    }
+                    authCode = "AUTHORISED";
                     break;
                 case "REFUND":
-                    if (isSuccess) payment.setAuthCode("REFUNDED");
+                    authCode = "REFUNDED";
                     break;
                 case "CANCELLATION":
-                    if (isSuccess) payment.setAuthCode("CANCELLED");
+                    authCode = "CANCELLED";
                     break;
                 case "EXPIRE":
-                    if (isSuccess) payment.setAuthCode("EXPIRED");
+                    authCode = "EXPIRED";
                     break;
+                default:
+                    throw new RuntimeException("Unknown event code");
             }
 
-            payment.setStatus("SUCCESS");
+            payment.setAuthCode(authCode);
 
-            paymentDao.updateStatusAndAuth(payment);
+            if (isSuccess) {
+                payment.setStatus(PaymentStatusEnum.SUCCESS);
+                paymentDao.updateStatusAndAuth(payment);
+            } else {
+                payment.setStatus(PaymentStatusEnum.FAILED);
+                payment.setFailureMessage(reason);
+                paymentDao.updateStatusAuthCodeAndSetMessage(payment);
+            }
+
+
         } catch (Exception e) {
             logger.error("Error when receive new notification: " + e.getMessage(), item);
 
@@ -213,6 +230,7 @@ public class PaymentService {
         try {
             return new ObjectMapper().writeValueAsString(item);
         } catch (JsonProcessingException e) {
+            logger.error("Error on convert json to string.", e);
             return "{}";
         }
     }

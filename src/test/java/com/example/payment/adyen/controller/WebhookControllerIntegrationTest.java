@@ -7,6 +7,8 @@ import com.example.payment.adyen.dto.PaymentWebhookDTO;
 import com.example.payment.adyen.service.PaymentService;
 import com.example.payment.config.AdyenConfig;
 import com.example.payment.helper.DatabaseHelper;
+import com.example.payment.helper.PaymentStatusEnum;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +22,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.nio.charset.Charset;
+import java.sql.SQLException;
 import java.util.Date;
 import java.util.List;
 
@@ -29,10 +32,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
-@AutoConfigureMockMvc
 @ActiveProfiles("test")
+@AutoConfigureMockMvc
 @ContextConfiguration(locations = "classpath:test-config.xml")
-public class WebhookControllerIntegrationTest {
+class WebhookControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -53,7 +56,8 @@ public class WebhookControllerIntegrationTest {
     private PaymentService paymentService;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws SQLException {
+        databaseHelper.printInfo();
         databaseHelper.cleanDatabase();
     }
 
@@ -63,8 +67,8 @@ public class WebhookControllerIntegrationTest {
         payment.setReference("REF123");
         payment.setPspReference("PSP123456");
         payment.setCurrency("EUR");
-        payment.setAmount(1000L);
-        payment.setStatus("INITIATED");
+        payment.setAmount(1000.00);
+        payment.setStatus(PaymentStatusEnum.INITIATED);
         payment.setPaymentMethod("ideal");
         payment.setCreateAt(new Date());
         payment.setUpdateAt(new Date());
@@ -82,8 +86,8 @@ public class WebhookControllerIntegrationTest {
                           "hmacSignature": "lEqHAW/V47OEL996uB0tmZMPJcCJaFf6zG/VrZF1v6E="
                         },
                         "amount": {
-                          "currency": "USD",
-                          "value": 500
+                          "currency": "EUR",
+                          "value": 100000
                         },
                         "eventCode": "AUTHORISATION",
                         "eventDate": "2025-04-17T18:04:17+02:00",
@@ -117,7 +121,7 @@ public class WebhookControllerIntegrationTest {
         Thread.sleep(3000);
 
         PaymentDTO updatedPayment = paymentDao.findByPspReference("PSP123456").orElseThrow();
-        assertEquals("SUCCESS", updatedPayment.getStatus());
+        assertEquals(PaymentStatusEnum.SUCCESS, updatedPayment.getStatus());
         assertEquals("AUTHORISED", updatedPayment.getAuthCode());
 
         List<PaymentWebhookDTO> webhooks = paymentWebhookDao.getAllWebhooksByPaymentId(updatedPayment.getId());

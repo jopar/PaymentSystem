@@ -1,6 +1,7 @@
 package com.example.payment.adyen.dao;
 
 import com.example.payment.adyen.dto.PaymentDTO;
+import com.example.payment.helper.PaymentStatusEnum;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -15,7 +16,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-public class PaymentDaoTest {
+class PaymentDaoTest {
 
     private NamedParameterJdbcTemplate jdbcTemplate;
     private PaymentDao paymentDao;
@@ -30,11 +31,11 @@ public class PaymentDaoTest {
         paymentDTO = new PaymentDTO();
         paymentDTO.setMerchantReference("merchant-123");
         paymentDTO.setPspReference("psp-123");
-        paymentDTO.setAmount(1000L);
+        paymentDTO.setAmount(1000.00);
         paymentDTO.setCurrency("USD");
         paymentDTO.setReference("reference-123");
         paymentDTO.setPaymentMethod("credit_card");
-        paymentDTO.setStatus("pending");
+        paymentDTO.setStatus(PaymentStatusEnum.PENDING);
         paymentDTO.setAuthCode("auth-123");
         paymentDTO.setFailureMessage("none");
         paymentDTO.setCreateAt(new java.sql.Timestamp(System.currentTimeMillis()));

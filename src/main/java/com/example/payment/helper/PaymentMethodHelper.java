@@ -3,8 +3,16 @@ package com.example.payment.helper;
 import com.adyen.model.checkout.CardDetails;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.IdealDetails;
+import com.adyen.util.Util;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 public class PaymentMethodHelper {
+    private PaymentMethodHelper() {
+        throw new IllegalStateException("Utility class");
+    }
+
     public static boolean isCardPayment(Object details) {
         return details instanceof CardDetails;
     }
@@ -57,5 +65,14 @@ public class PaymentMethodHelper {
         }
 
         return checkoutPaymentMethod;
+    }
+
+    public static long toMinorUnits(Double amount, String currencyCode)
+    {
+        int fractionDigits = Util.getDecimalPlaces(currencyCode);
+
+        BigDecimal amountBD = BigDecimal.valueOf(amount);
+        BigDecimal minorUnits = amountBD.movePointRight(fractionDigits);
+        return minorUnits.setScale(0, RoundingMode.HALF_UP).longValueExact();
     }
 }

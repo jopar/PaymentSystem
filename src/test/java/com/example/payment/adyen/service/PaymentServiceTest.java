@@ -4,6 +4,7 @@ import com.adyen.model.RequestOptions;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.notification.Amount;
 import com.adyen.model.notification.NotificationRequest;
 import com.adyen.model.notification.NotificationRequestItem;
 import com.adyen.service.checkout.PaymentsApi;
@@ -16,6 +17,7 @@ import com.example.payment.adyen.dto.PaymentRequestDTO;
 import com.example.payment.config.AdyenConfig;
 import com.example.payment.exceptions.PaymentNotFoundException;
 import com.example.payment.helper.PaymentMethodHelper;
+import com.example.payment.helper.PaymentStatusEnum;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +30,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-public class PaymentServiceTest {
+class PaymentServiceTest {
 
     private PaymentService paymentService;
     private PaymentsApi paymentsApi;
@@ -126,7 +128,7 @@ public class PaymentServiceTest {
 
         assertEquals(pspReference, payment.getPspReference());
         assertEquals(authCode, payment.getAuthCode());
-        assertEquals("SUCCESS", payment.getStatus());
+        assertEquals(PaymentStatusEnum.SUCCESS, payment.getStatus());
 
         verify(paymentDao, times(1)).updatePspReferenceStatusAndCode(payment);
     }
@@ -137,13 +139,11 @@ public class PaymentServiceTest {
 
         paymentService.updatePaymentFailure(payment, "Some error occurred");
 
-        assertEquals("FAILED", payment.getStatus());
+        assertEquals(PaymentStatusEnum.FAILED, payment.getStatus());
         assertEquals("Some error occurred", payment.getFailureMessage());
 
         verify(paymentDao, times(1)).updateStatusAndSetMessage(payment);
     }
-
-    // TODO: 14. 04. 2025 Write other update tests
 
     @Test
     void testCreatePaymentSuccess() throws PaymentNotFoundException {
@@ -217,7 +217,7 @@ public class PaymentServiceTest {
         String referenceNumber = "REF123";
         String returnUrl = "https://return.url";
 
-        mockStatic(PaymentMethodHelper.class);
+//        mockStatic(PaymentMethodHelper.class);
         when(PaymentMethodHelper.createCheckoutPaymentMethod(paymentDetails)).thenReturn(mock(CheckoutPaymentMethod.class));
         when(adyenConfig.getMerchantAccount()).thenReturn("TestMerchant");
 
@@ -277,11 +277,15 @@ public class PaymentServiceTest {
         item.setEventCode("AUTHORISATION");
         item.setSuccess(true);
         item.setPspReference("psp123");
-        item.setMerchantReference("merchantRef");
+        item.setMerchantAccountCode("merchantRef");
+        item.setAmount(new Amount().currency("EUR").value(5000L));
         item.setEventDate(new Date());
 
         PaymentDTO payment = new PaymentDTO();
         payment.setPspReference("psp123");
+        payment.setMerchantReference("merchantRef");
+        payment.setCurrency("EUR");
+        payment.setAmount(50.00);
 
         when(paymentDao.findByPspReference("psp123")).thenReturn(Optional.of(payment));
         doNothing().when(paymentWebhookDao).insert(any());
@@ -289,7 +293,7 @@ public class PaymentServiceTest {
         paymentService.handleNotification(item);
 
         assertEquals("AUTHORISED", payment.getAuthCode());
-        assertEquals("SUCCESS", payment.getStatus());
+        assertEquals(PaymentStatusEnum.SUCCESS, payment.getStatus());
         verify(paymentDao, times(1)).updateStatusAndAuth(payment);
         verify(paymentWebhookDao, times(1)).insert(any());
     }
@@ -316,11 +320,15 @@ public class PaymentServiceTest {
         item.setEventCode("REFUND");
         item.setSuccess(true);
         item.setPspReference("psp123");
-        item.setMerchantReference("merchantRef");
+        item.setMerchantAccountCode("merchantRef");
+        item.setAmount(new Amount().currency("EUR").value(5000L));
         item.setEventDate(new Date());
 
         PaymentDTO payment = new PaymentDTO();
         payment.setPspReference("psp123");
+        payment.setMerchantReference("merchantRef");
+        payment.setCurrency("EUR");
+        payment.setAmount(50.00);
 
         when(paymentDao.findByPspReference("psp123")).thenReturn(Optional.of(payment));
         doNothing().when(paymentWebhookDao).insert(any());
@@ -328,7 +336,7 @@ public class PaymentServiceTest {
         paymentService.handleNotification(item);
 
         assertEquals("REFUNDED", payment.getAuthCode());
-        assertEquals("SUCCESS", payment.getStatus());
+        assertEquals(PaymentStatusEnum.SUCCESS, payment.getStatus());
         verify(paymentDao, times(1)).updateStatusAndAuth(payment);
         verify(paymentWebhookDao, times(1)).insert(any());
     }

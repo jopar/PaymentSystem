@@ -10,11 +10,9 @@ import org.springframework.context.annotation.ImportResource;
 @ImportResource({"classpath*:applicationContext.xml"})
 public class PaymentSystem {
 
-	private final static MyLogger logger = new MyLogger(LoggerFactory.getLogger(PaymentSystem.class));
+	private static final MyLogger logger = new MyLogger(LoggerFactory.getLogger(PaymentSystem.class));
 
 	public static void main(String[] args) {
-
-//		ApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
 
 		logger.info("This is start of application");
 

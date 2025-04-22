@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 @ContextConfiguration(locations = "classpath:test-config.xml")
-public class PaymentControllerIntegrationTest {
+class PaymentControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -45,23 +45,6 @@ public class PaymentControllerIntegrationTest {
 
     @Test
     void testCreatePayment_returns200OK() throws Exception {
-
-//        String requestJson = """
-//                    {
-//                        "paymentMethodDetails": {
-//                            "type": "scheme",
-//                            "encryptedCardNumber": "test_4111111111111111",
-//                            "encryptedSecurityCode": "test_737",
-//                            "encryptedExpiryYear": "test_2030",
-//                            "encryptedExpiryMonth": "test_03"
-//                        },
-//                        "amount": "500",
-//                        "currency": "USD",
-//                        "referenceNumber": "ref12345",
-//                        "returnURL": "http://example.com/return"
-//                    }
-//                """;
-
         PaymentRequestDTO dto = new PaymentRequestDTO();
         dto.setAmount("500");
         dto.setCurrency("USD");
@@ -80,7 +63,7 @@ public class PaymentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Payment successfully processed")));
+                .andExpect(content().string(containsString("The payment successfully processed")));
 
         Integer countPayment = databaseHelper.countPayment();
         assertEquals(1, countPayment.intValue());

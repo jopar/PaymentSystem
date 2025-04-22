@@ -5,6 +5,7 @@ import com.adyen.model.checkout.IdealDetails;
 import com.example.payment.adyen.dto.PaymentRequestDTO;
 import com.example.payment.helper.PaymentMethodHelper;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
 
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -30,9 +31,9 @@ public class PaymentValidator {
         }
 
         String amountStr = paymentRequestDTO.getAmount();
-        if (amountStr != null) {
+        if (StringUtils.isNotBlank(amountStr)) {
             try {
-                float amount = Float.parseFloat(amountStr);
+                Double amount = Double.parseDouble(amountStr);
 
                 if (amount <= 0) {
                     errors.add("An amount must be greater then 0");
@@ -44,15 +45,15 @@ public class PaymentValidator {
             errors.add("An amount is required");
         }
 
-        if (paymentRequestDTO.getCurrency() == null || paymentRequestDTO.getCurrency().isEmpty()) {
+        if (StringUtils.isBlank(paymentRequestDTO.getCurrency())) {
             errors.add("Currency is required");
         }
 
-        if (paymentRequestDTO.getReferenceNumber() == null || paymentRequestDTO.getReferenceNumber().isEmpty()) {
+        if (StringUtils.isBlank(paymentRequestDTO.getReferenceNumber())) {
             errors.add("A reference number is required");
         }
 
-        if (paymentRequestDTO.getReturnURL() == null || paymentRequestDTO.getReturnURL().isEmpty()) {
+        if (StringUtils.isBlank(paymentRequestDTO.getReturnURL())) {
             errors.add("A return URL is required");
         }
 
@@ -67,23 +68,23 @@ public class PaymentValidator {
             return errors;
         }
 
-        if (cardDetails.getEncryptedCardNumber() == null || cardDetails.getEncryptedCardNumber().isEmpty()) {
+        if (StringUtils.isBlank(cardDetails.getEncryptedCardNumber())) {
             errors.add("Card number is required");
         }
 
-        if (cardDetails.getEncryptedSecurityCode() == null || cardDetails.getEncryptedSecurityCode().isEmpty()) {
+        if (StringUtils.isBlank(cardDetails.getEncryptedSecurityCode())) {
             errors.add("Security code is required");
         }
 
         boolean isOkYear = true;
         boolean isOkMonth = true;
 
-        if (cardDetails.getEncryptedExpiryYear() == null || cardDetails.getEncryptedExpiryYear().isEmpty()) {
+        if (StringUtils.isBlank(cardDetails.getEncryptedExpiryYear())) {
             errors.add("Expiry year is required");
             isOkYear = false;
         }
 
-        if (cardDetails.getEncryptedExpiryMonth() == null || cardDetails.getEncryptedExpiryMonth().isEmpty()) {
+        if (StringUtils.isBlank(cardDetails.getEncryptedExpiryMonth())) {
             errors.add("Expiry month is required");
             isOkMonth = false;
         }

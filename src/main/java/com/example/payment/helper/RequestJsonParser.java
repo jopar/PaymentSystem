@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.util.stream.Collectors;
 
 public class RequestJsonParser {
+    private RequestJsonParser() {
+        throw new IllegalStateException("Utility class");
+    }
     private static final ObjectMapper mapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES, false)
             .configure(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, false);

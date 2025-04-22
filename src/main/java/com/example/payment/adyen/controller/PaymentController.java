@@ -27,7 +27,7 @@ public class PaymentController {
     private final PaymentService paymentService;
     private final PaymentValidator paymentValidator;
 
-    private final static MyLogger logger = new MyLogger(LoggerFactory.getLogger(PaymentController.class));
+    private static final MyLogger logger = new MyLogger(LoggerFactory.getLogger(PaymentController.class));
 
     public PaymentController(PaymentService paymentService, PaymentValidator paymentValidator) {
         this.paymentService = paymentService;
@@ -49,6 +49,7 @@ public class PaymentController {
         // Validate all request data
         List<String> errorsOnValidate = paymentValidator.validateOnPay(paymentRequestDTO);
         if (!errorsOnValidate.isEmpty()) {
+            logger.error("Validate error on request new payment.", errorsOnValidate);
             return ResponseEntity.badRequest().body(Map.of("errors", errorsOnValidate));
         }
 
@@ -75,36 +76,25 @@ public class PaymentController {
                 return ResponseEntity.badRequest().body(errorMessage);
             } catch (Exception e) {
                 logger.error("Error on make payment: " + e.getMessage());
-                paymentService.updatePaymentFailure(payment, "Error: " + e.getMessage());
-                return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+                paymentService.updatePaymentFailure(payment, getErrorMessage(e.getMessage()));
+                return ResponseEntity.badRequest().body(getErrorMessage(e.getMessage()));
             }
 
             PaymentResponse.ResultCodeEnum resultCode = paymentResponse.getResultCode();
             String authCode = resultCode.getValue();
-            if (resultCode.equals(PaymentResponse.ResultCodeEnum.AUTHORISED)) {
-                String pspReference = paymentResponse.getPspReference();
 
-                paymentService.updatePaymentSuccess(payment, pspReference, authCode);
 
-                logger.info("Payment successfully processed!");
-                return ResponseEntity.ok("Payment successfully processed");
-            } else if (resultCode.equals(PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER)) {
-                PaymentResponseAction action = paymentResponse.getAction();
-                CheckoutRedirectAction checkoutRedirectAction = action.getCheckoutRedirectAction();
-                String redirectActionUrl = checkoutRedirectAction.getUrl();
-                paymentService.updatePaymentPending(payment, authCode);
-
-                logger.info("Payment in process. Redirect to: " + redirectActionUrl);
-                return ResponseEntity.ok("Payment in process. Redirect to: " + redirectActionUrl);
-            } else {
-                logger.error("Payment failed. Auth code: " + authCode);
-                paymentService.updatePaymentFailure(payment, "Payment failed", authCode);
-                return ResponseEntity.badRequest().body("Payment failed: " + paymentResponse.getResultCode());
-            }
+            return switch (resultCode) {
+                case AUTHORISED -> getStringResponseEntityAuthorised(paymentResponse, payment, authCode);
+                case REDIRECTSHOPPER -> getStringResponseEntityRedirectShopper(paymentResponse, payment, authCode);
+                case RECEIVED, PENDING, PRESENTTOSHOPPER ->
+                        getStringResponseEntityIntermediateResult(paymentResponse, payment, authCode);
+                case CANCELLED, ERROR, REFUSED -> getStringResponseEntityError(paymentResponse, payment, authCode);
+                default -> throw new IllegalArgumentException("Unknown result code: " + authCode);
+            };
         } catch (Exception e) {
-            e.printStackTrace();
-            logger.error("Error on payment controller: " + e.getMessage());
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            logger.error("Error on payment controller: " + e);
+            return ResponseEntity.badRequest().body(getErrorMessage(e.getMessage()));
         }
     }
 
@@ -131,39 +121,50 @@ public class PaymentController {
         PaymentDetailsResponse paymentDetailsResponse;
 
         try {
-            paymentDetailsResponse = paymentService.checkPayment(referenceNumber, redirectResult);
+            paymentDetailsResponse = paymentService.checkPayment(redirectResult);
             String pspReference = paymentDetailsResponse.getPspReference();
             PaymentDetailsResponse.ResultCodeEnum resultCode = paymentDetailsResponse.getResultCode();
             String authCode = resultCode.getValue();
 
-            if (resultCode.equals(PaymentDetailsResponse.ResultCodeEnum.AUTHORISED)) {
-                paymentService.updatePaymentSuccess(payment, pspReference, authCode);
+            ResponseEntity<String> response;
 
-                logger.info("Payment successfully processed!");
-                return ResponseEntity.ok("Payment successfully processed");
-            } else if (resultCode.equals(PaymentDetailsResponse.ResultCodeEnum.CANCELLED)) {
-                paymentService.updatePaymentSuccess(payment, pspReference, authCode);
+            switch (resultCode) {
+                case AUTHORISED:
+                    paymentService.updatePaymentSuccess(payment, pspReference, authCode);
 
-                logger.info("Payment was canceled. Continue with order or change different payment method.");
-                return ResponseEntity.ok("Payment was canceled. Continue with order or change different payment method");
-            } else  if (resultCode.equals(PaymentDetailsResponse.ResultCodeEnum.ERROR)) {
-                paymentService.updatePaymentFailure(payment, paymentDetailsResponse.getRefusalReason(), pspReference, authCode);
+                    logger.info("Payment successfully processed!");
+                    response = ResponseEntity.ok("Payment successfully processed");
+                    break;
+                case CANCELLED:
+                    paymentService.updatePaymentSuccess(payment, pspReference, authCode);
 
-                logger.error("Payment failed: " + paymentDetailsResponse.getRefusalReason());
-                return ResponseEntity.badRequest().body("Payment failed: " + paymentDetailsResponse.getRefusalReason());
-            } else if (resultCode.equals(PaymentDetailsResponse.ResultCodeEnum.PENDING) || resultCode.equals(PaymentDetailsResponse.ResultCodeEnum.RECEIVED)) {
-                paymentService.updatePaymentPending(payment, authCode, pspReference);
+                    logger.info("Payment was canceled. Continue with order or change different payment method.");
+                    response = ResponseEntity.ok("Payment was canceled. Continue with order or change different payment method");
+                    break;
+                case ERROR:
+                    paymentService.updatePaymentFailure(payment, paymentDetailsResponse.getRefusalReason(), pspReference, authCode);
 
-                logger.info("Payment in process. Waiting for payment completed.");
-                return ResponseEntity.ok("Payment in process. Waiting for payment completed.");
-            } else if (resultCode.equals(PaymentDetailsResponse.ResultCodeEnum.REFUSED)) {
-                paymentService.updatePaymentFailure(payment, "The payment was refused by the shopper's bank.", pspReference, authCode);
+                    logger.error("Payment failed: " + paymentDetailsResponse.getRefusalReason());
+                    response = ResponseEntity.badRequest().body("Payment failed: " + paymentDetailsResponse.getRefusalReason());
+                    break;
+                case PENDING, RECEIVED:
+                    paymentService.updatePaymentPending(payment, authCode, pspReference);
 
-                logger.info("The payment was refused by the shopper's bank. Please use different payment method.");
-                return ResponseEntity.badRequest().body("The payment was refused by the shopper's bank. Please use different payment method.");
-            } else {
-                throw new IllegalArgumentException("Unknown result code: " + authCode);
+                    logger.info("Payment in process. Waiting for payment completed.");
+                    response = ResponseEntity.ok("Payment in process. Waiting for payment completed.");
+                    break;
+                case REFUSED:
+                    paymentService.updatePaymentFailure(payment, "The payment was refused by the shopper's bank.", pspReference, authCode);
+
+                    logger.info("The payment was refused by the shopper's bank. Please use different payment method.");
+                    response = ResponseEntity.badRequest().body("The payment was refused by the shopper's bank. Please use different payment method.");
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown result code: " + authCode);
+
             }
+
+            return response;
         } catch (ApiException apiException) {
             ApiError apiError = apiException.getError();
             String errorMessage = apiError.getMessage();
@@ -174,8 +175,45 @@ public class PaymentController {
             return ResponseEntity.badRequest().body(errorMessage);
         } catch (Exception e) {
             logger.error("Error on check payment: " + e.getMessage());
-            paymentService.updatePaymentFailure(payment, "Error: " + e.getMessage());
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            paymentService.updatePaymentFailure(payment, getErrorMessage(e.getMessage()));
+            return ResponseEntity.badRequest().body(getErrorMessage(e.getMessage()));
         }
+    }
+
+    private ResponseEntity<String> getStringResponseEntityIntermediateResult(PaymentResponse paymentResponse, PaymentDTO payment, String authCode) {
+        String pspReference = paymentResponse.getPspReference();
+        paymentService.updatePaymentPending(payment, authCode, pspReference);
+        logger.info("The payment received but waiting for final status.");
+
+        return ResponseEntity.ok("The payment received but waiting for final status.");
+    }
+
+    private ResponseEntity<String> getStringResponseEntityError(PaymentResponse paymentResponse, PaymentDTO payment, String authCode) {
+        logger.error("The payment failed. Auth code: " + authCode);
+        paymentService.updatePaymentFailure(payment, "Payment failed", authCode);
+        return ResponseEntity.badRequest().body("The payment failed: " + paymentResponse.getResultCode());
+    }
+
+    private ResponseEntity<String> getStringResponseEntityRedirectShopper(PaymentResponse paymentResponse, PaymentDTO payment, String authCode) {
+        PaymentResponseAction action = paymentResponse.getAction();
+        CheckoutRedirectAction checkoutRedirectAction = action.getCheckoutRedirectAction();
+        String redirectActionUrl = checkoutRedirectAction.getUrl();
+        paymentService.updatePaymentPending(payment, authCode);
+
+        logger.info("The payment in process. Redirect to: " + redirectActionUrl);
+        return ResponseEntity.ok("v in process. Redirect to: " + redirectActionUrl);
+    }
+
+    private ResponseEntity<String> getStringResponseEntityAuthorised(PaymentResponse paymentResponse, PaymentDTO payment, String authCode) {
+        String pspReference = paymentResponse.getPspReference();
+
+        paymentService.updatePaymentSuccess(payment, pspReference, authCode);
+
+        logger.info("The payment successfully processed!");
+        return ResponseEntity.ok("The payment successfully processed");
+    }
+
+    private String getErrorMessage(String errorMessage) {
+        return String.format("Error: %s", errorMessage);
     }
 }

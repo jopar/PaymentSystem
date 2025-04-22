@@ -1,6 +1,7 @@
 package com.example.payment.adyen.dao;
 
 import com.example.payment.adyen.dto.PaymentDTO;
+import com.example.payment.helper.PaymentStatusEnum;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -31,7 +32,7 @@ public class PaymentDao {
                 .addValue("currency", dto.getCurrency())
                 .addValue("reference", dto.getReference())
                 .addValue("paymentMethod", dto.getPaymentMethod())
-                .addValue("status", dto.getStatus())
+                .addValue("status", dto.getStatus().getValue())
                 .addValue("authCode", dto.getAuthCode())
                 .addValue("failureMessage", dto.getFailureMessage())
                 .addValue("createAt", dto.getCreateAt())
@@ -41,8 +42,12 @@ public class PaymentDao {
 
         jdbc.update(sql, params, keyHolder, new String[] {"id"});
 
-        Long paymentId = keyHolder.getKey().longValue();
-        return findById(paymentId);
+        Number key = keyHolder.getKey();
+        if (key != null) {
+            return findById(key.longValue());
+        } else {
+            return Optional.empty();
+        }
     }
 
     public Optional<PaymentDTO> findById(Long paymentId) {
@@ -89,7 +94,7 @@ public class PaymentDao {
                 "WHERE id = :paymentId";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("status", payment.getStatus())
+                .addValue("status", payment.getStatus().getValue())
                 .addValue("authCode", payment.getAuthCode())
                 .addValue("pspReference", payment.getPspReference())
                 .addValue("paymentId", payment.getId());
@@ -102,7 +107,7 @@ public class PaymentDao {
                 "WHERE id = :paymentId";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("status", payment.getStatus())
+                .addValue("status", payment.getStatus().getValue())
                 .addValue("authCode", payment.getAuthCode())
                 .addValue("paymentId", payment.getId());
 
@@ -114,7 +119,7 @@ public class PaymentDao {
                 "WHERE id = :paymentId";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("status", payment.getStatus())
+                .addValue("status", payment.getStatus().getValue())
                 .addValue("failureMessage", payment.getFailureMessage())
                 .addValue("paymentId", payment.getId());
 
@@ -126,7 +131,7 @@ public class PaymentDao {
                 "WHERE id = :paymentId";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("status", payment.getStatus())
+                .addValue("status", payment.getStatus().getValue())
                 .addValue("authCode", payment.getAuthCode())
                 .addValue("failureMessage", payment.getFailureMessage())
                 .addValue("paymentId", payment.getId());
@@ -138,7 +143,7 @@ public class PaymentDao {
         String sql = "UPDATE payment SET status = :status, update_at = now() WHERE id = :paymentId";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("status", payment.getStatus())
+                .addValue("status", payment.getStatus().getValue())
                 .addValue("paymentId", payment.getId());
 
         jdbc.update(sql, params);
@@ -150,11 +155,11 @@ public class PaymentDao {
             dto.setId(rs.getLong("id"));
             dto.setMerchantReference(rs.getString("merchant_reference"));
             dto.setPspReference(rs.getString("psp_reference"));
-            dto.setAmount(rs.getLong("amount"));
+            dto.setAmount(rs.getDouble("amount"));
             dto.setCurrency(rs.getString("currency"));
             dto.setReference(rs.getString("reference"));
             dto.setPaymentMethod(rs.getString("payment_method"));
-            dto.setStatus(rs.getString("status"));
+            dto.setStatus(PaymentStatusEnum.fromValue(rs.getString("status")));
             dto.setAuthCode(rs.getString("auth_code"));
             dto.setFailureMessage(rs.getString("failure_message"));
             dto.setCreateAt(rs.getTimestamp("create_at"));

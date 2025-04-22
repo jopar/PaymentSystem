@@ -27,13 +27,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
-public class PaymentControllerTest {
+class PaymentControllerTest {
     private PaymentService paymentService;
     private PaymentValidator paymentValidator;
     private PaymentController paymentController;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         paymentService = mock(PaymentService.class);
         paymentValidator = mock(PaymentValidator.class);
 
@@ -243,7 +243,7 @@ public class PaymentControllerTest {
         PaymentDetailsResponse.ResultCodeEnum resultCode = PaymentDetailsResponse.ResultCodeEnum.AUTHORISED;
 
         when(paymentService.getPaymentByID(123L)).thenReturn(payment);
-        when(paymentService.checkPayment("ref123", "redirectValue")).thenReturn(responseMock);
+        when(paymentService.checkPayment("redirectValue")).thenReturn(responseMock);
         when(responseMock.getPspReference()).thenReturn("psp123");
         when(responseMock.getResultCode()).thenReturn(resultCode);
 

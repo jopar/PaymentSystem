@@ -6,6 +6,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -34,12 +36,17 @@ public class DatabaseHelper {
     }
 
     public void printInfo() throws SQLException {
-        DatabaseMetaData metaData = jdbc.getDataSource().getConnection().getMetaData();
+        DataSource dataSource = jdbc.getDataSource();
+        if (dataSource != null) {
+            try (Connection connection = dataSource.getConnection()) {
+                DatabaseMetaData metaData = connection.getMetaData();
 
-        logger.info("Database: " + metaData.getDatabaseProductName());
-        logger.info("URL: " + metaData.getURL());
+                logger.info("Database: " + metaData.getDatabaseProductName());
+                logger.info("URL: " + metaData.getURL());
 
-        logger.info("Tables in DB:", jdbc.queryForList("SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_schema='PUBLIC'", String.class));
+                logger.info("Tables in DB:", jdbc.queryForList("SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_schema='PUBLIC'", String.class));
+            }
+        }
     }
 
     public Integer countPayment() {

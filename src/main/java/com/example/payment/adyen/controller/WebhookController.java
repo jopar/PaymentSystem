@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/webhook/adyen")
 public class WebhookController {
 
-    private final static MyLogger logger = new MyLogger(LoggerFactory.getLogger(WebhookController.class));
+    private static final MyLogger logger = new MyLogger(LoggerFactory.getLogger(WebhookController.class));
 
     private final ThreadPoolTaskExecutor taskExecutor;
     private final AsyncWebhookProcessor webhookProcessor;

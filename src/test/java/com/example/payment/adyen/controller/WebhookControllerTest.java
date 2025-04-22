@@ -17,7 +17,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-public class WebhookControllerTest {
+class WebhookControllerTest {
     private ThreadPoolTaskExecutor taskExecutor;
     private AsyncWebhookProcessor webhookProcessor;
     private PaymentService paymentService;

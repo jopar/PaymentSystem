@@ -23,7 +23,7 @@ public class PaymentWebhookDao {
     private static final String SELECT_PAYMENT_WEBHOOK_BY_ID_SQL =
             "SELECT * FROM payment_webhook WHERE id = :id";
 
-    private static final String SELECT_ALL_PAYMENt_WEBHOOK_BY_PAYMENT_ID =
+    private static final String SELECT_ALL_PAYMENT_WEBHOOK_BY_PAYMENT_ID =
             "SELECT * FROM payment_webhook WHERE payment_id = :paymentId";
 
     private static final String UPDATE_PAYMENT_WEBHOOK_SQL =
@@ -52,7 +52,7 @@ public class PaymentWebhookDao {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("paymentId", paymentId);
 
-        return jdbc.query(SELECT_ALL_PAYMENt_WEBHOOK_BY_PAYMENT_ID, params, paymentWebhookRowMapper());
+        return jdbc.query(SELECT_ALL_PAYMENT_WEBHOOK_BY_PAYMENT_ID, params, paymentWebhookRowMapper());
     }
 
     private RowMapper<PaymentWebhookDTO> paymentWebhookRowMapper() {
