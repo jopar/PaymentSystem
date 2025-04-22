@@ -181,11 +181,6 @@ Notification items are:
 - 🧪 Unit tests written with **JUnit 5** and **Mockito**  
 - 🔗 Integration tests validate **real beans** and full application flow
 
-### ✅ Running Tests
-
-```bash
-./mvnw test
-```
 
 ## 🧪 Running the Application
 
@@ -193,7 +188,7 @@ Notification items are:
 ./mvnw spring-boot:run
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbODYwNTk3NjQ3LC0xMzIwNjg2ODc1LDYyMj
-cxMTM3MCwtMTA0NTYzMDUzMiwtMjA4OTk3NTU3NCwxMDY3NzUx
-MjI2LDgyNjMwNDc1M119
+eyJoaXN0b3J5IjpbNjQ3MTY1OTA4LDg2MDU5NzY0NywtMTMyMD
+Y4Njg3NSw2MjI3MTEzNzAsLTEwNDU2MzA1MzIsLTIwODk5NzU1
+NzQsMTA2Nzc1MTIyNiw4MjYzMDQ3NTNdfQ==
 -->
